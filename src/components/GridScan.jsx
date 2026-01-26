@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from "react";
 
-const GridScan = ({
+export default function GridScan({
   sensitivity = 0.55,
   lineThickness = 1,
   linesColor = "#392e4e",
@@ -16,84 +16,104 @@ const GridScan = ({
   scanDuration = 2,
   scanDelay = 2,
   scanOnClick = false,
-}) => {
+}) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
     let animationFrameId;
     let startTime = Date.now();
 
-    const render = () => {
-      const width = canvas.width = canvas.offsetWidth;
-      const height = canvas.height = canvas.offsetHeight;
+    const resize = () => {
+      canvas.width = canvas.parentElement.offsetWidth;
+      canvas.height = canvas.parentElement.offsetHeight;
+    };
+
+    window.addEventListener("resize", resize);
+    resize();
+
+    const draw = () => {
+      const { width, height } = canvas;
       const elapsed = (Date.now() - startTime) / 1000;
       
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw Grid
-      const step = 50 * gridScale * 10; // Adjusting scale for visibility
+      // 1. Draw Static Grid
+      const spacing = 50 * gridScale * 10;
       ctx.beginPath();
       ctx.strokeStyle = linesColor;
       ctx.lineWidth = lineThickness;
-      
-      for (let x = 0; x <= width; x += step) {
-        ctx.moveTo(x + (Math.random() * lineJitter), 0);
-        ctx.lineTo(x + (Math.random() * lineJitter), height);
+      if (lineStyle === "dashed") ctx.setLineDash([5, 5]);
+
+      for (let x = 0; x <= width; x += spacing) {
+        const jitter = (Math.random() - 0.5) * lineJitter * 20;
+        ctx.moveTo(x + jitter, 0);
+        ctx.lineTo(x + jitter, height);
       }
-      for (let y = 0; y <= height; y += step) {
-        ctx.moveTo(0, y + (Math.random() * lineJitter));
-        ctx.lineTo(width, y + (Math.random() * lineJitter));
+      for (let y = 0; y <= height; y += spacing) {
+        const jitter = (Math.random() - 0.5) * lineJitter * 20;
+        ctx.moveTo(0, y + jitter);
+        ctx.lineTo(width, y + jitter);
       }
       ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
 
-      // 2. Calculate Scan Position (Ping-Pong)
+      // 2. Calculate Scan Movement
       const totalCycle = scanDuration + scanDelay;
       const progress = (elapsed % totalCycle) / scanDuration;
-      let scanY = 0;
-
+      
       if (progress <= 1) {
-        // Ping-pong math
-        const sinePos = (Math.sin(progress * Math.PI - Math.PI / 2) + 1) / 2;
-        scanY = sinePos * height;
+        let y;
+        if (scanDirection === "pingpong") {
+          y = (Math.sin(progress * Math.PI - Math.PI / 2) + 1) / 2 * height;
+        } else {
+          y = progress * height;
+        }
 
-        // 3. Draw Scan Line
-        const gradient = ctx.createLinearGradient(0, scanY - (50 * scanSoftness), 0, scanY + (50 * scanSoftness));
-        gradient.addColorStop(0, 'transparent');
+        // 3. Draw Glow & Scan Line
+        const gradient = ctx.createLinearGradient(0, y - (50 * scanSoftness), 0, y + (50 * scanSoftness));
+        gradient.addColorStop(0, "transparent");
         gradient.addColorStop(0.5, scanColor);
-        gradient.addColorStop(1, 'transparent');
+        gradient.addColorStop(1, "transparent");
 
         ctx.globalAlpha = scanOpacity;
         ctx.shadowBlur = 20 * scanGlow;
         ctx.shadowColor = scanColor;
-        
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, scanY - (25 * scanSoftness), width, 50 * scanSoftness);
-        ctx.globalAlpha = 1.0;
+        ctx.fillRect(0, y - (25 * scanSoftness), width, 50 * scanSoftness);
+        
         ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
       }
 
-      // 4. Add Noise (Film Grain)
+      // 4. Noise/Grain Effect
       if (noiseIntensity > 0) {
         ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * noiseIntensity})`;
         ctx.fillRect(0, 0, width, height);
       }
 
-      animationFrameId = requestAnimationFrame(render);
+      animationFrameId = requestAnimationFrame(draw);
     };
 
-    render();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [gridScale, scanDuration, scanDelay, scanColor, linesColor]);
+    draw();
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [gridScale, linesColor, scanColor, scanDuration, scanDirection, scanOpacity, lineThickness, lineJitter, scanGlow, scanSoftness, noiseIntensity, scanDelay, lineStyle]);
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      className="w-full h-full block"
-      style={{ background: 'transparent' }}
+    <canvas
+      ref={canvasRef}
+      style={{
+        display: "block",
+        width: "100%",
+        height: "100%",
+        pointerEvents: scanOnClick ? "auto" : "none",
+      }}
     />
   );
-};
-
-export default GridScan;
+}
