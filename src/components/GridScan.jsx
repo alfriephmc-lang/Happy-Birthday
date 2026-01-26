@@ -27,7 +27,6 @@ export default function GridScan({
     let startTime = Date.now();
 
     const resize = () => {
-      // Safely resize based on parent container
       if (canvas.parentElement) {
         canvas.width = canvas.parentElement.offsetWidth;
         canvas.height = canvas.parentElement.offsetHeight;
@@ -43,17 +42,14 @@ export default function GridScan({
       
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw Grid
+      // 1. Draw Static Grid
       const spacing = 50 * gridScale * 10;
       ctx.beginPath();
       ctx.strokeStyle = linesColor;
       ctx.lineWidth = lineThickness;
       
-      if (lineStyle === "dashed") {
-        ctx.setLineDash([5, 5]);
-      } else {
-        ctx.setLineDash([]);
-      }
+      if (lineStyle === "dashed") ctx.setLineDash([5, 5]);
+      else ctx.setLineDash([]);
 
       for (let x = 0; x <= width; x += spacing) {
         const jitter = (Math.random() - 0.5) * lineJitter * 20;
@@ -67,20 +63,18 @@ export default function GridScan({
       }
       ctx.stroke();
 
-      // 2. Scan Movement Logic
+      // 2. Scan Line Movement
       const totalCycle = scanDuration + scanDelay;
       const progress = (elapsed % totalCycle) / scanDuration;
       
       if (progress <= 1) {
         let y;
         if (scanDirection === "pingpong") {
-          // Ping-pong math using sine for smoothness
           y = (Math.sin(progress * Math.PI - Math.PI / 2) + 1) / 2 * height;
         } else {
           y = progress * height;
         }
 
-        // 3. Draw Scan Glow
         const gradient = ctx.createLinearGradient(0, y - (50 * scanSoftness), 0, y + (50 * scanSoftness));
         gradient.addColorStop(0, "transparent");
         gradient.addColorStop(0.5, scanColor);
@@ -96,7 +90,6 @@ export default function GridScan({
         ctx.globalAlpha = 1;
       }
 
-      // 4. Static Noise Overlay
       if (noiseIntensity > 0) {
         ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * noiseIntensity})`;
         ctx.fillRect(0, 0, width, height);
@@ -111,20 +104,13 @@ export default function GridScan({
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [
-    gridScale, linesColor, scanColor, scanDuration, scanDirection, 
-    scanOpacity, lineThickness, lineJitter, scanGlow, scanSoftness, 
-    noiseIntensity, scanDelay, lineStyle
-  ]);
+  }, [gridScale, linesColor, scanColor, scanDuration, scanDirection, scanOpacity, lineThickness, lineJitter, scanGlow, scanSoftness, noiseIntensity, scanDelay, lineStyle]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-full block border-none outline-none"
-      style={{
-        pointerEvents: scanOnClick ? "auto" : "none",
-        background: "transparent"
-      }}
+      className="w-full h-full block"
+      style={{ pointerEvents: scanOnClick ? "auto" : "none" }}
     />
   );
 }
